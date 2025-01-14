@@ -1,7 +1,7 @@
 
 # Big Data Project  
 
-This repository contains the code and documentation for a Big Data project, focusing on analyzing, processing, and visualizing large-scale datasets. The project demonstrates the application of big data frameworks and tools to derive meaningful insights and solve real-world problems.  
+This repository contains the code and documentation for a Big Data project, focusing on analyzing, processing, and visualizing large-scale datasets. The project includes an implementation of video processing using Kafka for handling real-time data streams.  
 
 
 
@@ -10,7 +10,8 @@ This repository contains the code and documentation for a Big Data project, focu
 The project includes:  
 - **Data Collection**: Gathering structured and unstructured data from various sources.  
 - **Data Preprocessing**: Cleaning, transforming, and preparing datasets for analysis.  
-- **Big Data Frameworks**: Utilizing tools like Hadoop, Spark, or similar technologies.  
+- **Big Data Frameworks**: Utilizing tools like Hadoop, Spark, and Kafka.  
+- **Video Processing with Kafka**: Implementing real-time video processing pipelines to handle large video streams.  
 - **Analysis and Insights**: Performing advanced analytics using scalable algorithms.  
 - **Visualization**: Creating intuitive visualizations to represent trends and findings.  
 
@@ -20,15 +21,16 @@ The project includes:
 
 To run the project, ensure you have the following installed:  
 - Python 3.8+  
-- Big Data tools such as Hadoop or Apache Spark (installation may vary based on your environment).  
+- Big Data tools such as Hadoop, Apache Spark, and Apache Kafka.  
 - Python libraries:  
   - Pandas  
   - PySpark  
   - Matplotlib/Seaborn  
+  - Kafka-python  
 
 Install dependencies using pip:  
 ```bash  
-pip install pandas pyspark matplotlib seaborn  
+pip install pandas pyspark matplotlib seaborn kafka-python  
 ```  
 
  
@@ -42,56 +44,82 @@ pip install pandas pyspark matplotlib seaborn
    ```  
 
 2. Set up your environment:  
-   - Configure Hadoop or Spark on your system (refer to their official documentation).  
-   - Ensure your datasets are stored in the appropriate input directories.  
+   - Configure Hadoop, Spark, and Kafka on your system (refer to their official documentation).  
+   - Ensure your datasets and video files are stored in the appropriate input directories.  
 
-3. Run the main script:  
+3. Run the Kafka server and create a topic for video processing:  
    ```bash  
-   python main.py  
+   kafka-server-start.sh config/server.properties  
+   kafka-topics.sh --create --topic video-stream --bootstrap-server localhost:9092  
    ```  
 
-4. Explore the visualizations and output files generated in the output directory.  
+4. Run the producer to stream video data:  
+   ```bash  
+   python src/producer.py  
+   ```  
 
- 
+5. Run the consumer to process the streamed video data:  
+   ```bash  
+   python src/consumer.py  
+   ```  
+
+6. Explore the visualizations and output files generated in the output directory.  
+
+
 
 ## Project Structure  
 
 ```
 Big-Data-Project/  
-├── data/                  # Raw datasets  
-├── output/                # Processed data and results  
-├── src/                   # Source code files  
-├── main.py                # Main script to run the project  
-├── README.md              # Project documentation  
-└── requirements.txt       # Python dependencies  
+├── data/                 
+├── output/                
+├── src/                   
+│   ├── producer.py       
+│   ├── consumer.py        
+├── main.py                
+├── README.md               
+└── requirements.txt        
 ```  
 
 
-## Example Analysis  
 
-### Sample Code: Word Count Using PySpark  
+## Example Video Processing  
+
+### Kafka Producer Example:  
 ```python  
-from pyspark import SparkContext  
+from kafka import KafkaProducer  
+import cv2  
 
-sc = SparkContext("local", "Word Count")  
+producer = KafkaProducer(bootstrap_servers='localhost:9092')  
+video = cv2.VideoCapture('data/sample_video.mp4')  
 
-text_file = sc.textFile("data/input.txt")  
-counts = text_file.flatMap(lambda line: line.split(" "))  
-                 .map(lambda word: (word, 1))  
-                 .reduceByKey(lambda a, b: a + b)  
+while video.isOpened():  
+    ret, frame = video.read()  
+    if not ret:  
+        break  
+    producer.send('video-stream', frame.tobytes())  
 
-counts.saveAsTextFile("output/word_count")  
+video.release()  
+producer.close()  
 ```  
 
-### Sample Visualization: Data Trends  
+### Kafka Consumer Example:  
 ```python  
-import pandas as pd  
-import matplotlib.pyplot as plt  
+from kafka import KafkaConsumer  
+import cv2  
+import numpy as np  
 
-df = pd.read_csv("output/results.csv")  
-plt.plot(df['Date'], df['Value'])  
-plt.title("Data Trends Over Time")  
-plt.show()  
+consumer = KafkaConsumer('video-stream', bootstrap_servers='localhost:9092')  
+
+for message in consumer:  
+    frame = np.frombuffer(message.value, dtype=np.uint8)  
+    # Process the frame here  
+    cv2.imshow('Video Frame', frame)  
+    if cv2.waitKey(1) & 0xFF == ord('q'):  
+        break  
+
+cv2.destroyAllWindows()  
+consumer.close()  
 ```  
 
 
@@ -104,15 +132,13 @@ Contributions are welcome!
 - Report issues or bugs in the Issues section.  
 
 
-
 ## License  
 
 This project is licensed under the MIT License.  
 
- 
+
 
 ## Acknowledgments  
 
-Special thanks to the open-source community and contributors of big data tools like Apache Hadoop, Apache Spark, and Python libraries for enabling seamless data processing and analysis.  
-
+Special thanks to the open-source community and contributors of big data tools like Apache Hadoop, Apache Spark, Apache Kafka, and Python libraries for enabling seamless data processing and analysis.  
 
